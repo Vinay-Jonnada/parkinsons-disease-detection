@@ -1,38 +1,147 @@
 import streamlit as st
-import pickle
+import os
+import json
+import joblib
 import numpy as np
 
-# Load trained model and scaler
-model = pickle.load(open("svm_model.pkl", "rb"))
-scaler = pickle.load(open("scaler.pkl", "rb"))
+# === Constants ===
+PROJECT_DIR = os.path.dirname(__file__)
+USER_DATA_FILE = os.path.join(PROJECT_DIR, 'users.json')
+MODEL_FILE = os.path.join(PROJECT_DIR, 'svm_model.joblib')
+SCALER_FILE = os.path.join(PROJECT_DIR, 'scaler.joblib')
+PERFORMANCE_FILE = os.path.join(PROJECT_DIR, 'model_performance.json')
+DATASET_FILE_PATH = os.path.join(PROJECT_DIR, 'parkinsons.csv')
 
-st.set_page_config(page_title="Parkinson's Disease Detection", layout="centered")
+FEATURES_FOR_MODEL = [
+    "MDVP:Fo(Hz)", "MDVP:Fhi(Hz)", "MDVP:Flo(Hz)", "MDVP:Jitter(%)",
+    "MDVP:Shimmer", "Shimmer:DDA", "HNR", "RPDE", "DFA",
+    "spread1", "spread2", "D2", "PPE"
+]
 
-# App title
-st.title("🧠 Parkinson's Disease Detection")
-st.write("This app predicts whether a person has Parkinson's disease based on input features.")
+# === Load model, scaler, metrics ===
+try:
+    model = joblib.load(MODEL_FILE)
+    scaler = joblib.load(SCALER_FILE)
+    model_loaded = True
+except:
+    model, scaler, model_loaded = None, None, False
 
-# Collect user input
-# (Replace with the actual features your model expects)
-fo = st.number_input("MDVP:Fo(Hz)", min_value=0.0, format="%.3f")
-fhi = st.number_input("MDVP:Fhi(Hz)", min_value=0.0, format="%.3f")
-flo = st.number_input("MDVP:Flo(Hz)", min_value=0.0, format="%.3f")
-Jitter_percent = st.number_input("MDVP:Jitter(%)", min_value=0.0, format="%.6f")
-Jitter_Abs = st.number_input("MDVP:Jitter(Abs)", min_value=0.0, format="%.6f")
-RAP = st.number_input("MDVP:RAP", min_value=0.0, format="%.6f")
-PPQ = st.number_input("MDVP:PPQ", min_value=0.0, format="%.6f")
-Shimmer = st.number_input("MDVP:Shimmer", min_value=0.0, format="%.6f")
-Shimmer_dB = st.number_input("MDVP:Shimmer(dB)", min_value=0.0, format="%.6f")
+try:
+    with open(PERFORMANCE_FILE, "r") as f:
+        model_performance = json.load(f)
+except:
+    model_performance = {}
 
-# Add all required features here (matching your training dataset)
+# === Ensure users.json exists ===
+if not os.path.exists(USER_DATA_FILE):
+    with open(USER_DATA_FILE, "w") as f:
+        json.dump({}, f)
 
-# Prediction button
-if st.button("Predict"):
-    features = np.array([[fo, fhi, flo, Jitter_percent, Jitter_Abs, RAP, PPQ, Shimmer, Shimmer_dB]])
-    features_scaled = scaler.transform(features)
-    prediction = model.predict(features_scaled)
 
-    if prediction[0] == 1:
-        st.error("⚠️ The model predicts: **Parkinson's Disease Detected**")
+# === Streamlit App ===
+st.set_page_config(page_title="Parkinson's Detection App", layout="wide")
+
+# Sidebar Menu
+menu = st.sidebar.radio("📌 Navigation", 
+    ["Home", "Login / Sign Up", "Predict Parkinson's", "Abstract", 
+     "Algorithm & Example", "Dataset Info", "Help"])
+
+# Session state for login
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+
+# === Pages ===
+if menu == "Home":
+    st.title("🧠 Parkinson's Detection App")
+    st.write("Welcome to the Parkinson’s Disease detection system using voice features and SVM.")
+    st.image("home.png", use_column_width=True)
+
+elif menu == "Login / Sign Up":
+    st.subheader("🔑 Login / Sign Up")
+
+    choice = st.radio("Select Action", ["Login", "Sign Up"])
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    with open(USER_DATA_FILE, "r") as f:
+        users = json.load(f)
+
+    if choice == "Login":
+        if st.button("Login"):
+            if username in users and users[username] == password:
+                st.session_state.user = username
+                st.success(f"✅ Welcome {username}")
+            else:
+                st.error("❌ Invalid username or password")
     else:
-        st.success("✅ The model predicts: **No Parkinson's Disease**")
+        if st.button("Sign Up"):
+            if username in users:
+                st.error("⚠️ Username already exists")
+            else:
+                users[username] = password
+                with open(USER_DATA_FILE, "w") as f:
+                    json.dump(users, f, indent=4)
+                st.success("🎉 Account created, please login.")
+
+elif menu == "Predict Parkinson's":
+    if not st.session_state.user:
+        st.warning("⚠️ Please login first from the sidebar.")
+    elif not model_loaded:
+        st.error("❌ Model or scaler not found. Run training first.")
+    else:
+        st.subheader("🔬 Enter Voice Measurements")
+
+        input_data = {}
+        for feature in FEATURES_FOR_MODEL:
+            input_data[feature] = st.number_input(f"{feature}", value=0.0)
+
+        if st.button("Get Prediction"):
+            values = [input_data[feat] for feat in FEATURES_FOR_MODEL]
+            scaled = scaler.transform([values])
+            pred = model.predict(scaled)[0]
+
+            if pred == 1:
+                st.error("🩺 Parkinson's Disease Detected")
+            else:
+                st.success("✅ No Disease Detected")
+
+            # Show metrics
+            st.subheader("📊 Model Performance")
+            st.write(f"**Accuracy**: {model_performance.get('accuracy', 0):.2f}")
+            st.write(f"**Precision**: {model_performance.get('precision', 0):.2f}")
+            st.write(f"**Recall**: {model_performance.get('recall', 0):.2f}")
+            st.write(f"**F1 Score**: {model_performance.get('f1_score', 0):.2f}")
+
+elif menu == "Abstract":
+    st.subheader("📄 Abstract")
+    st.write("""
+    Parkinson’s Disease (PD) is a progressive neurological disorder that primarily affects movement control.
+    This project focuses on the development of a machine learning-based system to detect PD using
+    biomedical voice measurements. We employ a Support Vector Machine (SVM) classifier trained on a dataset of vocal
+    features such as jitter, shimmer, and harmonics-to-noise ratio.
+    """)
+
+elif menu == "Algorithm & Example":
+    st.subheader("⚙️ Algorithm & Example")
+    st.write("""
+    - Algorithm: Support Vector Machine (SVM)
+    - Data preprocessing: features scaled
+    - Model trained on voice dataset
+    - Predicts PD vs Healthy
+    """)
+
+elif menu == "Dataset Info":
+    st.subheader("📊 Dataset Info")
+    st.write("Dataset: Parkinson’s Disease dataset from UCI ML Repository.")
+    if os.path.exists(DATASET_FILE_PATH):
+        st.download_button("📥 Download Dataset", open(DATASET_FILE_PATH, "rb"), "parkinsons.csv")
+
+elif menu == "Help":
+    st.subheader("🆘 Help")
+    st.write("""
+    1. Login/Sign up from sidebar  
+    2. Go to 'Predict Parkinson's' to enter features  
+    3. Get prediction + model performance  
+    4. If model not found, run training first  
+    """)
