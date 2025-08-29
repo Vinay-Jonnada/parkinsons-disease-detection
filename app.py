@@ -59,7 +59,7 @@ if menu == "Home":
     st.title("🧠 Parkinson's Detection App")
     st.write("Welcome to the Parkinson’s Disease detection system using voice features and SVM.")
     if os.path.exists("home.png"):
-        st.image("home.png", use_column_width=True)
+        st.image("home.png", use_container_width=True)
 
 elif menu == "Login / Sign Up":
     st.subheader("🔑 Login / Sign Up")
@@ -76,7 +76,7 @@ elif menu == "Login / Sign Up":
             if username in users and users[username] == password:
                 st.session_state.user = username
                 st.success(f"✅ Welcome {username}")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("❌ Invalid username or password")
     else:
@@ -156,5 +156,5 @@ elif menu == "Help":
 elif menu == "Logout":
     st.session_state.user = None
     st.success("🔓 Logged out successfully")
-    st.experimental_rerun()
+    st.rerun()
 
