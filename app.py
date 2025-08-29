@@ -37,25 +37,29 @@ if not os.path.exists(USER_DATA_FILE):
     with open(USER_DATA_FILE, "w") as f:
         json.dump({}, f)
 
-
 # === Streamlit App ===
 st.set_page_config(page_title="Parkinson's Detection App", layout="wide")
-
-# Sidebar Menu
-menu = st.sidebar.radio("📌 Navigation", 
-    ["Home", "Login / Sign Up", "Predict Parkinson's", "Abstract", 
-     "Algorithm & Example", "Dataset Info", "Help"])
 
 # Session state for login
 if "user" not in st.session_state:
     st.session_state.user = None
 
+# Sidebar Menu (dynamic)
+if st.session_state.user:
+    menu = st.sidebar.radio("📌 Navigation", 
+        ["Home", "Predict Parkinson's", "Abstract", 
+         "Algorithm & Example", "Dataset Info", "Help", "Logout"])
+else:
+    menu = st.sidebar.radio("📌 Navigation", 
+        ["Home", "Abstract", "Algorithm & Example", 
+         "Dataset Info", "Help", "Login / Sign Up"])
 
 # === Pages ===
 if menu == "Home":
     st.title("🧠 Parkinson's Detection App")
     st.write("Welcome to the Parkinson’s Disease detection system using voice features and SVM.")
-    st.image("home.png", use_column_width=True)
+    if os.path.exists("home.png"):
+        st.image("home.png", use_column_width=True)
 
 elif menu == "Login / Sign Up":
     st.subheader("🔑 Login / Sign Up")
@@ -72,6 +76,7 @@ elif menu == "Login / Sign Up":
             if username in users and users[username] == password:
                 st.session_state.user = username
                 st.success(f"✅ Welcome {username}")
+                st.experimental_rerun()
             else:
                 st.error("❌ Invalid username or password")
     else:
@@ -85,16 +90,18 @@ elif menu == "Login / Sign Up":
                 st.success("🎉 Account created, please login.")
 
 elif menu == "Predict Parkinson's":
-    if not st.session_state.user:
-        st.warning("⚠️ Please login first from the sidebar.")
-    elif not model_loaded:
+    if not model_loaded:
         st.error("❌ Model or scaler not found. Run training first.")
     else:
         st.subheader("🔬 Enter Voice Measurements")
 
         input_data = {}
         for feature in FEATURES_FOR_MODEL:
-            input_data[feature] = st.number_input(f"{feature}", value=0.0)
+            input_data[feature] = st.number_input(
+                f"{feature}", 
+                value=0.0, 
+                format="%.6f"   # allows typing decimals
+            )
 
         if st.button("Get Prediction"):
             values = [input_data[feat] for feat in FEATURES_FOR_MODEL]
@@ -125,10 +132,10 @@ elif menu == "Abstract":
 elif menu == "Algorithm & Example":
     st.subheader("⚙️ Algorithm & Example")
     st.write("""
-    - Algorithm: Support Vector Machine (SVM)
-    - Data preprocessing: features scaled
-    - Model trained on voice dataset
-    - Predicts PD vs Healthy
+    - Algorithm: Support Vector Machine (SVM)  
+    - Data preprocessing: features scaled  
+    - Model trained on voice dataset  
+    - Predicts PD vs Healthy  
     """)
 
 elif menu == "Dataset Info":
@@ -145,3 +152,9 @@ elif menu == "Help":
     3. Get prediction + model performance  
     4. If model not found, run training first  
     """)
+
+elif menu == "Logout":
+    st.session_state.user = None
+    st.success("🔓 Logged out successfully")
+    st.experimental_rerun()
+
