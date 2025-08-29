@@ -40,28 +40,36 @@ if not os.path.exists(USER_DATA_FILE):
 # === Streamlit App ===
 st.set_page_config(page_title="Parkinson's Detection App", layout="wide")
 
-# Session state for login
+# Session state for login + page
 if "user" not in st.session_state:
     st.session_state.user = None
+if "page" not in st.session_state:
+    st.session_state.page = "Home"
 
 # Sidebar Menu (dynamic)
 if st.session_state.user:
     menu = st.sidebar.radio("📌 Navigation", 
-        ["Home", "Predict Parkinson's", "Abstract", 
-         "Algorithm & Example", "Dataset Info", "Help", "Logout"])
+        ["Predict Parkinson's", "Abstract", 
+         "Algorithm & Example", "Dataset Info", "Help", "Logout"],
+        index=["Predict Parkinson's", "Abstract", "Algorithm & Example", "Dataset Info", "Help", "Logout"].index(st.session_state.page) if st.session_state.page else 0
+    )
 else:
     menu = st.sidebar.radio("📌 Navigation", 
         ["Home", "Abstract", "Algorithm & Example", 
-         "Dataset Info", "Help", "Login / Sign Up"])
+         "Dataset Info", "Help", "Login / Sign Up"],
+        index=["Home", "Abstract", "Algorithm & Example", "Dataset Info", "Help", "Login / Sign Up"].index(st.session_state.page) if st.session_state.page else 0
+    )
 
 # === Pages ===
 if menu == "Home":
+    st.session_state.page = "Home"
     st.title("🧠 Parkinson's Detection App")
     st.write("Welcome to the Parkinson’s Disease detection system using voice features and SVM.")
     if os.path.exists("home.png"):
         st.image("home.png", use_container_width=True)
 
 elif menu == "Login / Sign Up":
+    st.session_state.page = "Login / Sign Up"
     st.subheader("🔑 Login / Sign Up")
 
     choice = st.radio("Select Action", ["Login", "Sign Up"])
@@ -75,6 +83,7 @@ elif menu == "Login / Sign Up":
         if st.button("Login"):
             if username in users and users[username] == password:
                 st.session_state.user = username
+                st.session_state.page = "Predict Parkinson's"  # redirect
                 st.success(f"✅ Welcome {username}")
                 st.rerun()
             else:
@@ -90,6 +99,7 @@ elif menu == "Login / Sign Up":
                 st.success("🎉 Account created, please login.")
 
 elif menu == "Predict Parkinson's":
+    st.session_state.page = "Predict Parkinson's"
     if not model_loaded:
         st.error("❌ Model or scaler not found. Run training first.")
     else:
@@ -97,11 +107,12 @@ elif menu == "Predict Parkinson's":
 
         input_data = {}
         for feature in FEATURES_FOR_MODEL:
-            input_data[feature] = st.number_input(
-                f"{feature}", 
-                value=0.0, 
-                format="%.6f"   # allows typing decimals
-            )
+            val = st.text_input(f"{feature}", "")
+            try:
+                input_data[feature] = float(val) if val.strip() != "" else 0.0
+            except ValueError:
+                st.error(f"⚠️ Please enter a valid number for {feature}")
+                st.stop()
 
         if st.button("Get Prediction"):
             values = [input_data[feat] for feat in FEATURES_FOR_MODEL]
@@ -121,6 +132,7 @@ elif menu == "Predict Parkinson's":
             st.write(f"**F1 Score**: {model_performance.get('f1_score', 0):.2f}")
 
 elif menu == "Abstract":
+    st.session_state.page = "Abstract"
     st.subheader("📄 Abstract")
     st.write("""
     Parkinson’s Disease (PD) is a progressive neurological disorder that primarily affects movement control.
@@ -130,6 +142,7 @@ elif menu == "Abstract":
     """)
 
 elif menu == "Algorithm & Example":
+    st.session_state.page = "Algorithm & Example"
     st.subheader("⚙️ Algorithm & Example")
     st.write("""
     - Algorithm: Support Vector Machine (SVM)  
@@ -139,22 +152,25 @@ elif menu == "Algorithm & Example":
     """)
 
 elif menu == "Dataset Info":
+    st.session_state.page = "Dataset Info"
     st.subheader("📊 Dataset Info")
     st.write("Dataset: Parkinson’s Disease dataset from UCI ML Repository.")
     if os.path.exists(DATASET_FILE_PATH):
         st.download_button("📥 Download Dataset", open(DATASET_FILE_PATH, "rb"), "parkinsons.csv")
 
 elif menu == "Help":
+    st.session_state.page = "Help"
     st.subheader("🆘 Help")
     st.write("""
     1. Login/Sign up from sidebar  
-    2. Go to 'Predict Parkinson's' to enter features  
-    3. Get prediction + model performance  
-    4. If model not found, run training first  
+    2. After login → auto redirect to 'Predict Parkinson's'  
+    3. Enter feature values (decimals allowed)  
+    4. Get prediction + model performance  
+    5. If model not found, run training first  
     """)
 
 elif menu == "Logout":
     st.session_state.user = None
+    st.session_state.page = "Home"
     st.success("🔓 Logged out successfully")
     st.rerun()
-
