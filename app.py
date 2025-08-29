@@ -57,7 +57,7 @@ else:
     menu = st.sidebar.radio("📌 Navigation", 
         ["Home", "Abstract", "Algorithm & Example", 
          "Dataset Info", "Help", "Login / Sign Up"],
-        index=["Home", "Abstract", "Algorithm & Example", "Dataset Info", "Help", "Login / Sign Up"].index(st.session_state.page) if st.session_state.page else 0
+        index=["Home", "Login / Sign Up", "Abstract", "Algorithm & Example", "Dataset Info", "Help"].index(st.session_state.page) if st.session_state.page else 0
     )
 
 # === Pages ===
